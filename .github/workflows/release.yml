@@ -1,0 +1,75 @@
+name: Skills release
+on:
+  pull_request:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: read
+concurrency:
+  group: skills-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - run: npm install --global pnpm@11.28.8
+      - run: pnpm install --frozen-lockfile
+      - run: node --test scripts/*.test.mjs
+  github:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: test
+    runs-on: ubuntu-latest
+    environment: skills-release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - run: npm install --global pnpm@11.28.8
+      - run: pnpm install --frozen-lockfile
+      - name: Validate mirror credentials
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+        run: node -e 'if (!process.env.GITEE_TOKEN) throw new Error("Missing GITEE_TOKEN")'
+      - name: Build and sign committed assets
+        env:
+          RELEASE_SIGNING_PRIVATE_KEY: ${{ secrets.RELEASE_SIGNING_PRIVATE_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          key="$RUNNER_TEMP/skill-release.key"
+          trap 'rm -f "$key"' EXIT
+          umask 077
+          printf '%s' "$RELEASE_SIGNING_PRIVATE_KEY" > "$key"
+          node scripts/release.mjs "$key" "$GITHUB_REF_NAME"
+      - name: Verify release entrypoint
+        run: node scripts/publish.mjs verify "$GITHUB_REF_NAME" "$GITHUB_SHA"
+      - name: Publish GitHub assets
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/publish.mjs github "$GITHUB_REF_NAME" "$GITHUB_SHA"
+  gitee:
+    needs: github
+    runs-on: ubuntu-latest
+    environment: skills-release
+    env:
+      GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Mirror release commit and tag
+        run: node scripts/mirror.mjs "$GITHUB_REF_NAME"
+      - name: Copy and verify published GitHub assets
+        run: node scripts/publish.mjs gitee "$GITHUB_REF_NAME" "$GITHUB_SHA"

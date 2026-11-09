@@ -1,0 +1,9 @@
+interface:
+  display_name: "WebCross Browser"
+  short_description: "Operate WebCross Browser with live Actions and ABCP events"
+  icon_small: "./assets/icon-small.png"
+  icon_large: "./assets/icon-large.png"
+  brand_color: "#3E8F81"
+  default_prompt: "Use $webcross-browser to complete this WebCross browser task safely."
+policy:
+  allow_implicit_invocation: true

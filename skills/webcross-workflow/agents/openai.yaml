@@ -1,0 +1,9 @@
+interface:
+  display_name: "WebCross Workflow"
+  short_description: "Interactively demo, write, validate, and split WebCross Workflows"
+  icon_small: "./assets/icon-small.png"
+  icon_large: "./assets/icon-large.png"
+  brand_color: "#3E8F81"
+  default_prompt: "Use $webcross-workflow to interactively demonstrate, author, validate, and segment this WebCross Workflow."
+policy:
+  allow_implicit_invocation: true
